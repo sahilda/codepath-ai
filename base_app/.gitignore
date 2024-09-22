@@ -1,6 +1,6 @@
 .chainlit/
-.data_index/
-.data/
+data_index/
+data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
