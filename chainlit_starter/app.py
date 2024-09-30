@@ -29,7 +29,7 @@ You have four functions available to you:
 * get_now_playing_movies - shows what's currently playing. No input required.
 * get_showtimes - what are the showtimes for a specific movie. This requires two inputs, the movies and the user's location.
 * buy_ticket - this allows the user to buy a ticket. It requires a specific theater, movie, and showtime.
-* get_reviews - this gets specific reviews on a movie. This requires a specific movie.
+* get_reviews - this gets specific reviews on a movie. This requires the id of the movie.
 
 If you believe a function call would be helpful, then output the name of the function and an explanation for why you're calling.
 
@@ -46,20 +46,24 @@ If you encounter errors, report the issue to the user.
 """
 
 REVIEW_SYSTEM_PROMPT = """\
-Based on the conversation, determine if the topic is about a specific movie. Determine if the user is asking a question that would be aided by knowing what critics are saying about the movie. Determine if the reviews for that movie have already been provided in the conversation. If so, do not fetch reviews.
+Based on the conversation, determine if the topic is about a specific movie.
+Determine if the user is asking a question that would be aided by knowing what critics are saying about the movie.
+Determine if the reviews for that movie have already been provided in the conversation. If so, do not fetch reviews.
 
 Your only role is to evaluate the conversation, and decide whether to fetch reviews.
 
 Output the current movie, id, a boolean to fetch reviews in JSON format, and your
-rationale. Do not output as a code block.
+rationale. Do not output as a code block. The ID can be found from the list of movies in the conversation.
 
 {
     "movie": "title",
-    "id": 123,
+    "id": id of the movie as a int,
     "fetch_reviews": true
     "rationale": "reasoning"
 }
 """
+
+movies_context = ""
 
 @observe
 @cl.on_chat_start
@@ -101,13 +105,14 @@ async def on_message(message: cl.Message):
             # Check if it's a valid function call
             if "function_name" in function_call and "rationale" in function_call:
                 function_name = function_call["function_name"]
-                rationale = function_call["rationale"]
 
                 # Handle the function call
                 if function_name == "get_now_playing_movies":
                     print("get_now_playing_movies")
                     movies = get_now_playing_movies()
-                    message_history.append({"role": "system", "content": f"Function call rationale: {rationale}\n\n{movies}"})
+                    global movies_context
+                    movies_context = movies
+                    message_history.append({"role": "system", "content": f"movies: {movies}"})
 
                     # Generate a new response based on the function call result
                     response_message = await generate_response(client, message_history, gen_kwargs)
@@ -115,7 +120,7 @@ async def on_message(message: cl.Message):
                     print("get_showtimes")
                     parameters = function_call["parameters"]
                     showtimes = get_showtimes(*parameters)
-                    message_history.append({"role": "system", "content": f"Function call rationale: {rationale}\n\n{showtimes}"})
+                    message_history.append({"role": "system", "content": f"{showtimes}"})
 
                     # Generate a new response based on the function call result
                     response_message = await generate_response(client, message_history, gen_kwargs)
@@ -123,7 +128,7 @@ async def on_message(message: cl.Message):
                     print("buy_ticket")
                     parameters = function_call["parameters"]
                     ticket = buy_ticket(*parameters)
-                    message_history.append({"role": "system", "content": f"Function call rationale: {rationale}\n\n{ticket}"})
+                    message_history.append({"role": "system", "content": f"{ticket}"})
 
                     # Generate a new response based on the function call result
                     response_message = await generate_response(client, message_history, gen_kwargs)
@@ -131,7 +136,7 @@ async def on_message(message: cl.Message):
                     print("get_reviews")
                     parameters = function_call["parameters"]
                     reviews = get_reviews(*parameters)
-                    message_history.append({"role": "system", "content": f"Function call rationale: {rationale}\n\n{reviews}"})
+                    message_history.append({"role": "system", "content": f"{reviews}"})
 
                     # Generate a new response based on the function call result
                     response_message = await generate_response(client, message_history, gen_kwargs)
@@ -154,7 +159,8 @@ async def on_message(message: cl.Message):
 
 @observe
 async def should_fetch_reviews(message_history):
-    message_history = [{"role": "system", "content": REVIEW_SYSTEM_PROMPT}, {"role": "user", "content": message_history[-1]["content"]}]
+    global movies_context
+    message_history = [{"role": "system", "content": movies_context + " " + REVIEW_SYSTEM_PROMPT}, {"role": "user", "content": message_history[-1]["content"]}]
 
     response_message = await generate_response(client, message_history, gen_kwargs)
 

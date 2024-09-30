@@ -76,6 +76,7 @@ def buy_ticket(theater, movie, showtime):
 
 def get_reviews(movie_id):
     url = f"https://api.themoviedb.org/3/movie/{movie_id}/reviews?language=en-US&page=1"
+    print("review url: ", url)
     headers = {
         "accept": "application/json",
         "Authorization": f"Bearer {os.getenv('TMDB_API_ACCESS_TOKEN')}"
