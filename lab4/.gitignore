@@ -1,4 +1,6 @@
 .chainlit/
+.files/
+artifacts/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
