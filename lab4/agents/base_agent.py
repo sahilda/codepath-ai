@@ -61,6 +61,7 @@ class Agent:
 
         stream = await self.client.chat.completions.create(messages=copied_message_history, stream=True, tools=self.tools, tool_choice="auto", **self.gen_kwargs)
 
+        function_calls = []
         function_name = ""
         arguments = ""
         async for part in stream:
@@ -69,45 +70,52 @@ class Agent:
                 function_name_delta = tool_call.function.name or ""
                 arguments_delta = tool_call.function.arguments or ""
 
-                function_name += function_name_delta
-                arguments += arguments_delta
+                if function_name_delta != "" and function_name != "":
+                    function_calls.append([function_name, arguments])
+                    function_name = function_name_delta
+                    arguments = ""
+                else:
+                    function_name += function_name_delta
+                    arguments += arguments_delta
 
             if token := part.choices[0].delta.content or "":
                 await response_message.stream_token(token)
+        function_calls.append([function_name, arguments])
 
-        if function_name:
-            print("DEBUG: function_name:")
-            print("type:", type(function_name))
-            print("value:", function_name)
-            print("DEBUG: arguments:")
-            print("type:", type(arguments))
-            print("value:", arguments)
+        for function_name, arguments in function_calls:
+            if function_name:
+                print("DEBUG: function_name:")
+                print("type:", type(function_name))
+                print("value:", function_name)
+                print("DEBUG: arguments:")
+                print("type:", type(arguments))
+                print("value:", arguments)
 
-            if function_name == "updateArtifact":
-                import json
+                if function_name == "updateArtifact":
+                    import json
 
-                arguments_dict = json.loads(arguments)
-                filename = arguments_dict.get("filename")
-                contents = arguments_dict.get("contents")
+                    arguments_dict = json.loads(arguments)
+                    filename = arguments_dict.get("filename")
+                    contents = arguments_dict.get("contents")
 
-                if filename and contents:
-                    os.makedirs("artifacts", exist_ok=True)
-                    with open(os.path.join("artifacts", filename), "w") as file:
-                        file.write(contents)
+                    if filename and contents:
+                        os.makedirs("artifacts", exist_ok=True)
+                        with open(os.path.join("artifacts", filename), "w") as file:
+                            file.write(contents)
 
-                    # Add a message to the message history
-                    message_history.append({
-                        "role": "system",
-                        "content": f"The artifact '{filename}' was updated."
-                    })
+                        # Add a message to the message history
+                        message_history.append({
+                            "role": "system",
+                            "content": f"The artifact '{filename}' was updated."
+                        })
 
-                    stream = await self.client.chat.completions.create(messages=message_history, stream=True, **self.gen_kwargs)
-                    async for part in stream:
-                        if token := part.choices[0].delta.content or "":
-                            await response_message.stream_token(token)
+                        stream = await self.client.chat.completions.create(messages=message_history, stream=True, **self.gen_kwargs)
+                        async for part in stream:
+                            if token := part.choices[0].delta.content or "":
+                                await response_message.stream_token(token)
 
-        else:
-            print("No tool call")
+            else:
+                print("No tool call")
 
         await response_message.update()
 
