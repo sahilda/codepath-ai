@@ -6,10 +6,19 @@ from langfuse.decorators import observe
 from langfuse.openai import AsyncOpenAI
 import ast
 from tabulate import tabulate
+import os
 
 load_dotenv()
 
-client = AsyncOpenAI()
+USE_MISTRAL = False
+
+if USE_MISTRAL:
+    client = AsyncOpenAI(
+        api_key=os.getenv("RUNPOD_API_KEY"),
+        base_url=os.getenv("MISTRAL_7B_INSTRUCT_ENDPOINT")
+    )
+else:
+    client = AsyncOpenAI()
 
 # Set up logging
 logging.basicConfig(filename='output.log', level=logging.DEBUG,
@@ -78,7 +87,7 @@ async def vibe_check(file_path, model):
 
     with open(file_path, 'r') as f:
         for i, line in enumerate(f):
-            if i >= 10:
+            if i >= 30:
                 break
             data = json.loads(line)
             messages = data['messages']
@@ -128,7 +137,11 @@ async def vibe_check(file_path, model):
     }
 
 async def main():
-    models = ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]
+    if USE_MISTRAL:
+        models = ["mistralai/Mistral-7B-Instruct-v0.3"]
+    else:
+        models = ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo", "ft:gpt-4o-mini-2024-07-18:personal:gpt4omini-500:AFu0PXl0", "ft:gpt-3.5-turbo-0125:personal:gpt35-500:AFuHVq1T"]
+
     results = []
 
     for model in models:
